@@ -1,13 +1,13 @@
 services:
 
-  database:
+  database1:
       image: postgres:16-alpine
-      container_name: "database"
+      container_name: "database1"
+      env_file: ".env.service1"
       command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c random_page_cost=1.0
       volumes:
-        - ./db-data/postgresql:/var/lib/postgresql/data
-        # -- Any script we put under scripts will be copied to the container and run when our database gets initialized
-        #  - ./scripts:/docker-entrypoint-initdb.d 
+        - ./.docker/postgres/database1/db-data:/var/lib/postgresql/data
+        - ./.docker/postgres/database1:/docker-entrypoint-initdb.d 
       ports:
         - "127.0.0.1:5431:5432"
       healthcheck:
@@ -16,31 +16,48 @@ services:
         timeout: 60s
         retries: 5
         start_period: 80s  
-      environment:
-        POSTGRES_USER: ${POSTGRES_USER}
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        POSTGRES_DB: ${POSTGRES_DB}
       restart: always
       networks:
-        - back-tier
+        - database1
       # tmpfs: /var/lib/postgresql/data
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pgadmin
-    restart: always
-    depends_on:
-      - database
-    user: '$UID:$GID'
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PG_ADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PG_ADMIN_PASSWORD}
-    ports:
-      - "127.0.0.1:3333:80"
-    volumes:
-      - ./db-data/pgadmin:/var/lib/pgadmin
-    networks:
-      - back-tier
+  database2:
+      image: postgres:16-alpine
+      container_name: "database2"
+      env_file: ".env.service2"
+      command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c random_page_cost=1.0
+      volumes:
+        - ./.docker/postgres/database2/db-data:/var/lib/postgresql/data
+        - ./.docker/postgres/database2:/docker-entrypoint-initdb.d 
+      ports:
+        - "127.0.0.1:5432:5432"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+        interval: 30s
+        timeout: 60s
+        retries: 5
+        start_period: 80s  
+      restart: always
+      networks:
+        - database2
+
+
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: pgadmin
+  #   restart: always
+  #   depends_on:
+  #     - database
+  #   user: '$UID:$GID'
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: ${PG_ADMIN_EMAIL}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PG_ADMIN_PASSWORD}
+  #   ports:
+  #     - "127.0.0.1:3333:80"
+  #   volumes:
+  #     - ./db-data/pgadmin:/var/lib/pgadmin
+  #   networks:
+  #     - back-tier
 
   app:
     build: .
@@ -48,11 +65,14 @@ services:
       - "3000:3000"
       - 3001:3001
     depends_on:
-      - database
+      - database1
+      - database2
     volumes:
       - .:/home/node/app
     networks:
-      - back-tier
+      - database1
+      - database2
 
 networks:
-  back-tier:
+  database1:
+  database2:
